@@ -534,6 +534,7 @@ function renderResult(anim){
     renderHist(); renderNudge();
     $('decide').parentElement.outerHTML=`<div class="done">맛있게 드세요! 😊 기록해 둘게요.</div>
       <a class="gamelink" href="${GAMES_URL}">🎲 오늘은 니가 내라 · 사다리·룰렛·N분의1 →</a>`;
+    setTimeout(()=>{ const rs=document.getElementById('rsheet'); rs.scrollTo({top:rs.scrollHeight,behavior:'smooth'}); },50);
   };
   $('copyWord').onclick=async()=>{
     const b=$('copyWord');
