@@ -151,6 +151,7 @@
   .altrow span{font-size:.85rem;color:var(--muted);white-space:nowrap}
   .nudge{margin-top:12px;border-radius:14px;background:var(--accent-soft);color:var(--ink);padding:14px 16px;font-size:.98rem}
   .nudge a{display:block;margin-top:6px;color:var(--accent);font-weight:700;text-decoration:none}
+  .gamelink{display:block;margin-top:12px;text-align:center;padding:14px;border-radius:14px;background:var(--warm);color:#fff;text-decoration:none;font-weight:800}
   .near{margin:14px 0 0;font-size:.92rem;font-weight:700}
   .fine{font-size:.8rem;color:var(--muted);margin:12px 0 0;text-align:center}
   .lrow{display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--line)}
@@ -338,6 +339,7 @@ function spin(lines, done){
 document.getElementById('toHome').href = /github\.io$/.test(location.hostname) ? '../' : 'https://claude.ai/artifact/8Luk9xrK7wKUPetmV8mAJP';
 // ---- 저녁 앱 주소: GitHub Pages에서는 같은 계정의 /dinner/ 저장소, 그 밖에서는 Claude 링크 ----
 const COOK_URL = /github\.io$/.test(location.hostname) ? '../dinner/' : 'https://claude.ai/artifact/YYh3ntdGB59dDcM5Wfk9CT';
+const GAMES_URL = /github\.io$/.test(location.hostname) ? '../#games' : 'https://claude.ai/artifact/8Luk9xrK7wKUPetmV8mAJP#games';
 document.getElementById('toCook').href = COOK_URL;
 
 // ---- 기본 배달 메뉴 ----
@@ -530,8 +532,8 @@ function renderResult(anim){
     S.hist=store.get('dn_hist',[]);
     S.hist.unshift({names:[top.n],g:top.g,kind:'order',ts:Date.now()}); S.hist=S.hist.slice(0,40); store.set('dn_hist',S.hist);
     renderHist(); renderNudge();
-    $('decide').parentElement.outerHTML=`<div class="done">맛있게 드세요! 😊 기록해 둘게요.</div>`;
-    setTimeout(closeR,1600);
+    $('decide').parentElement.outerHTML=`<div class="done">맛있게 드세요! 😊 기록해 둘게요.</div>
+      <a class="gamelink" href="${GAMES_URL}">🎲 오늘은 니가 내라 · 사다리·룰렛·N분의1 →</a>`;
   };
   $('copyWord').onclick=async()=>{
     const b=$('copyWord');
