@@ -205,17 +205,47 @@
   .spinmsg{text-align:center;color:var(--muted);margin:14px 0 0}
   @keyframes pop{0%{transform:scale(.92);opacity:.3}100%{transform:none;opacity:1}}
   .pop{animation:pop .28s ease-out}
+
+  /* 글자 크게 */
+  html.big{font-size:21px !important}
+  html.big .bdate{display:none}
+  html.big .band h1{white-space:normal;line-height:1.3}
+  .homebtn,.bigbtn{white-space:nowrap}
+  .bright{display:flex;align-items:center;gap:8px;min-width:0}
+  .bigbtn{flex:none;border:1px solid rgba(255,255,255,.6);background:rgba(255,255,255,.5);color:inherit;border-radius:999px;padding:6px 11px;font:inherit;font-size:.82rem;font-weight:800;cursor:pointer;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+  html.night .bigbtn{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.22)}
+  .bigbtn.on{background:#2b2622;color:#fff;border-color:#2b2622}
+  /* 날씨 */
+  #wxbox{margin-top:12px}
+  .wxask,.wxrow{display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:1.5px solid var(--line);background:var(--card);color:var(--ink);border-radius:16px;padding:12px 14px;font:inherit;cursor:pointer}
+  .wxask{border-style:dashed}
+  .wxe{flex:none;font-size:1.7rem;line-height:1}
+  .wxt{flex:1;min-width:0}
+  .wxt b{display:block;font-size:1rem}
+  .wxt small{display:block;font-size:.85rem;color:var(--muted)}
+  .wxrow.off .wxe,.wxrow.off .wxt b{opacity:.5}
+  .wxtg{flex:none;border:1.5px solid var(--line);background:transparent;color:var(--ink);border-radius:999px;padding:6px 12px;font:inherit;font-size:.85rem;cursor:pointer}
+  .wxwait{margin:0;padding:12px 14px;border-radius:16px;background:var(--card);border:1.5px dashed var(--line);font-size:.92rem;color:var(--muted)}
+  .wxnote{margin:0 0 10px;padding:9px 12px;border-radius:12px;background:var(--accent-soft);color:var(--accent);font-size:.92rem;font-weight:700}
+  /* 좋아요 / 안 먹어요 */
+  .prefrow{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+  .pref{border:1.5px solid var(--line);background:transparent;color:var(--ink);border-radius:999px;padding:8px 14px;font:inherit;font-size:.92rem;cursor:pointer}
+  .pref.like.on{background:#fde8ec;border-color:#e86b84;color:#c2364f;font-weight:700}
+  .prefmsg{font-size:.88rem;color:var(--muted);margin:8px 0 0}
+  .badge.heart{background:#fde8ec;color:#c2364f}
+  .badge.nope{background:var(--bg);color:var(--muted);border:1px solid var(--line)}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header class="band" id="band">
-    <div class="btop"><a class="homebtn" id="toHome" href="#"><span class="chev">‹</span>처음으로</a><p class="bdate" id="bdate"></p></div>
+    <div class="btop"><a class="homebtn" id="toHome" href="#"><span class="chev">‹</span>처음으로</a><span class="bright"><p class="bdate" id="bdate"></p><button type="button" class="bigbtn" id="bigBtn">가+ 글자 크게</button></span></div>
     <div class="bmain"><h1>오늘 뭐 시켜 먹지?</h1><span class="bemo">🛵</span></div>
   </header>
 
   <section id="v-rec">
   <div id="nudge"></div>
+  <div id="wxbox"></div>
 
   <div class="card">
     <p class="q">1. 몇 명이서 먹어요?</p>
@@ -316,6 +346,82 @@ function paintSky(){
   document.getElementById('bdate').textContent=`${d.getMonth()+1}월 ${d.getDate()}일 ${'일월화수목금토'[d.getDay()]}요일`;
 }
 paintSky(); setInterval(paintSky,60000);
+
+// ================= 글자 크게 보기 (세 화면이 같이 기억) =================
+function applyBig(){
+  let on=false; try{ on=localStorage.getItem('dn_big')==='1'; }catch(e){}
+  document.documentElement.classList.toggle('big',on);
+  const b=document.getElementById('bigBtn'); if(b){ b.classList.toggle('on',on); b.setAttribute('aria-pressed',on?'true':'false'); b.textContent = on ? '가− 작게' : '가+ 글자 크게'; }
+}
+document.getElementById('bigBtn').onclick=()=>{
+  const on=document.documentElement.classList.contains('big');
+  try{ localStorage.setItem('dn_big', on?'0':'1'); }catch(e){}
+  applyBig();
+};
+applyBig();
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden) applyBig(); });
+
+// ================= 날씨 (Open-Meteo, 무료·키 없음) =================
+const WX={data:null, on:true};
+function wxLoad(){
+  try{ const c=JSON.parse(localStorage.getItem('dn_wx')||'null'); if(c && Date.now()-c.ts<30*60000) WX.data=c; }catch(e){}
+  try{ WX.on = localStorage.getItem('dn_wx_off')!=='1'; }catch(e){}
+}
+function wxLoc(){ try{ return JSON.parse(localStorage.getItem('dn_loc')||'null'); }catch(e){ return null; } }
+async function wxFetch(loc){
+  const u=`https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}&current=temperature_2m,weather_code,precipitation&timezone=Asia%2FSeoul`;
+  const r=await fetch(u); if(!r.ok) throw new Error('wx');
+  const c=(await r.json()).current;
+  WX.data={t:Math.round(c.temperature_2m), code:c.weather_code, p:c.precipitation||0, label:loc.label||'', ts:Date.now()};
+  try{ localStorage.setItem('dn_wx',JSON.stringify(WX.data)); }catch(e){}
+  renderWx();
+}
+function wxKind(d){
+  if(!d) return null; const c=d.code;
+  if((c>=71&&c<=77)||c===85||c===86) return 'snow';
+  if((c>=51&&c<=67)||(c>=80&&c<=82)||c>=95||d.p>=0.3) return 'rain';
+  if(d.t<=5) return 'cold';
+  if(d.t>=27) return 'hot';
+  return 'mild';
+}
+const WXTXT={
+  rain:['☔','비 오는 날','국물 요리와 전을 더 골라요','비 오는 날이라 국물 요리와 전을 더 골랐어요'],
+  snow:['❄️','눈 오는 날','따뜻한 국물 요리를 더 골라요','눈 오는 날이라 따뜻한 국물 요리를 더 골랐어요'],
+  cold:['🧣','쌀쌀한 날','따뜻한 국물 요리를 더 골라요','쌀쌀해서 따뜻한 국물 요리를 더 골랐어요'],
+  hot:['🥵','더운 날','시원하고 가벼운 메뉴를 더 골라요','더운 날이라 시원하고 가벼운 메뉴를 더 골랐어요'],
+  mild:['🌤','선선한 날','날씨에 맞게 골고루 골라요','']
+};
+WXTXT.rain[2]='따뜻한 국물 요리를 더 골라요'; WXTXT.rain[3]='비 오는 날이라 따뜻한 국물 요리를 더 골랐어요';
+function wxNow(){ return (WX.on && WX.data) ? wxKind(WX.data) : null; }
+function wxNote(){ const k=wxNow(); return (k && WXTXT[k][3]) ? `<p class="wxnote">${WXTXT[k][0]} ${WXTXT[k][3]}</p>` : ''; }
+function renderWx(){
+  const box=document.getElementById('wxbox'); if(!box) return;
+  const d=WX.data;
+  if(!d){
+    box.innerHTML=`<button type="button" class="wxask" id="wxAsk"><span class="wxe">🌦</span><span class="wxt"><b>날씨에 맞춰 추천받기</b><small>누르면 내 위치의 날씨를 확인해요</small></span></button>`;
+    document.getElementById('wxAsk').onclick=wxAsk; return;
+  }
+  const [e,name,desc]=WXTXT[wxKind(d)];
+  box.innerHTML=`<div class="wxrow${WX.on?'':' off'}"><span class="wxe">${e}</span><span class="wxt"><b>${d.label?d.label+' · ':''}${d.t}°C, ${name}</b><small>${WX.on?desc:'날씨 반영을 꺼 두었어요'}</small></span><button type="button" class="wxtg" id="wxTg">${WX.on?'끄기':'켜기'}</button></div>`;
+  document.getElementById('wxTg').onclick=()=>{ WX.on=!WX.on; try{ localStorage.setItem('dn_wx_off',WX.on?'0':'1'); }catch(e){} renderWx(); };
+}
+function wxFail(){ const box=document.getElementById('wxbox'); if(box) box.innerHTML='<p class="wxwait">날씨를 불러오지 못했어요. 잠시 뒤 다시 열어 주세요.</p>'; }
+function wxAsk(){
+  const box=document.getElementById('wxbox');
+  box.innerHTML='<p class="wxwait">📍 위치를 확인하고 있어요… 휴대폰에서 <b>허용</b>을 눌러 주세요.</p>';
+  const useSeoul=()=>{ const loc={lat:37.57,lon:126.98,label:'서울'}; try{ localStorage.setItem('dn_loc',JSON.stringify(loc)); }catch(e){} wxFetch(loc).catch(wxFail); };
+  if(!navigator.geolocation){ useSeoul(); return; }
+  navigator.geolocation.getCurrentPosition(pos=>{
+    const loc={lat:+pos.coords.latitude.toFixed(2), lon:+pos.coords.longitude.toFixed(2), label:'내 위치'};
+    try{ localStorage.setItem('dn_loc',JSON.stringify(loc)); }catch(e){}
+    wxFetch(loc).catch(wxFail);
+  }, useSeoul, {timeout:10000, maximumAge:3600000});
+}
+function wxInit(){
+  wxLoad(); renderWx();
+  const loc=wxLoc(); if(!WX.data && loc) wxFetch(loc).catch(()=>{});
+}
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden){ wxLoad(); const loc=wxLoc(); if(!WX.data && loc) wxFetch(loc).catch(()=>{}); } });
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden) paintSky(); });
 
 // ================= 추천 결과 창 =================
@@ -412,7 +518,7 @@ const esc = s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;
 function cleanItem(x){
   return {n:String(x.n||'').trim().slice(0,30), g:String(x.g||'기타').trim().slice(0,15)||'기타',
     p:Math.max(1000,Math.min(200000,parseInt(x.p)||12000)),
-    t:(Array.isArray(x.t)?x.t:[]).filter(k=>TAGNAME[k]), tip:String(x.tip||'').slice(0,300), off:!!x.off};
+    t:(Array.isArray(x.t)?x.t:[]).filter(k=>TAGNAME[k]), tip:String(x.tip||'').slice(0,300), off:!!x.off, like:!!x.like && !x.off};
 }
 let ITEMS = (()=>{ const d=store.get('dv_items',null); return Array.isArray(d)&&d.length ? d.map(cleanItem).filter(x=>x.n) : DEF_ITEMS.map(cleanItem); })();
 function saveItems(){ store.set('dv_items',ITEMS); S.picks=[]; $('result').innerHTML=''; }
@@ -464,8 +570,17 @@ function candidates(exclude=[]){
     && (!S.moods.has('spicy') || it.t.includes('sp'))
     && !isRecent(it,rec));
 }
+function wxFactor(it){
+  const k=wxNow(); if(!k || k==='mild') return 1;
+  const soup=it.t.includes('soup');
+  if(k==='rain'||k==='snow'||k==='cold') return /칼국수|수제비|짬뽕|우동|국밥|탕|찌개/.test(it.n) ? 2.6 : (soup ? 2.2 : 1);
+  if(k==='hot') return /냉면|샐러드|포케|초밥|회/.test(it.n) ? 2.6 : (soup ? 0.5 : (it.t.includes('light') ? 1.6 : 1));
+  return 1;
+}
 function score(it){
   let s=1;
+  if(it.like) s*=2.5;
+  s*=wxFactor(it);
   ['heavy','light','soup','night'].forEach(m=>{ if(S.moods.has(m)) s*= it.t.includes(m)?3:0.35; });
   if(S.ppl==='1'){ if(it.t.includes('big')) s*=0.15; if(it.t.includes('share')) s*=0.7; }
   if(S.ppl==='4'){ if(it.t.includes('share')) s*=2.2; else s*=0.6; }
@@ -509,7 +624,7 @@ function renderResult(anim){
   const [top,...alts]=S.picks;
   const ppl={1:'혼자',2:'2~3명',4:'4명 이상'}[S.ppl];
   box.innerHTML=`<div class="card${anim?' rise':''}">
-    <p class="q">오늘은 이거 어때요? 🛵</p>
+    <p class="q">오늘은 이거 어때요? 🛵</p>${wxNote()}
     <div class="dish${anim?' pop':''}">
       <div class="dhead"><span class="demo">${emojiFor(top)}</span><div><div class="kind">${esc(top.g)}</div>
       <h3>${esc(top.n)}</h3></div></div>
@@ -518,6 +633,7 @@ function renderResult(anim){
       ${top.tip?`<div class="tip">💡 ${esc(top.tip)}</div>`:''}
       ${mapLinks(searchWord(top))}
       <button class="swap" id="copyWord">📋 배달앱용 검색어 복사</button>
+      <div class="prefrow"><button type="button" class="pref like${top.like?' on':''}" data-act="like">${top.like?'❤️ 좋아하는 메뉴':'🤍 좋아요'}</button><button type="button" class="pref no" data-act="no">👎 안 먹어요</button></div>
     </div>
     ${alts.length?`<p class="q" style="margin-top:18px">다른 후보 <small>누르면 위로 바뀌어요</small></p>
       <div class="alts">${alts.map((a,k)=>`<button class="altrow" data-k="${k+1}"><b>${emojiFor(a)} ${esc(a.n)}</b><span>${esc(a.g)} · 1인 약 ${won(a.p)}</span></button>`).join('')}</div>`:''}
@@ -528,9 +644,19 @@ function renderResult(anim){
     const k=+b.dataset.k; [S.picks[0],S.picks[k]]=[S.picks[k],S.picks[0]]; renderResult(false);
   });
   $('again').onclick=recommend;
+  box.querySelectorAll('.pref').forEach(b=>b.onclick=()=>{
+    const it=ITEMS.find(x=>x.n===top.n); if(!it) return;
+    if(b.dataset.act==='like'){ it.like=!it.like; if(it.like) it.off=false; top.like=it.like; store.set('dv_items',ITEMS); renderResult(false); return; }
+    it.off=true; it.like=false; store.set('dv_items',ITEMS);
+    S.picks.shift();
+    if(!S.picks.length){ recommend(); return; }
+    renderResult(false);
+    const m=document.createElement('p'); m.className='prefmsg'; m.textContent=`👎 '${top.n}'은(는) 이제 추천하지 않아요. 메뉴 목록에서 되돌릴 수 있어요.`;
+    const card=$('result').querySelector('.card'); if(card) card.insertBefore(m, card.children[1]||null);
+  });
   $('decide').onclick=()=>{
     S.hist=store.get('dn_hist',[]);
-    S.hist.unshift({names:[top.n],g:top.g,kind:'order',ts:Date.now()}); S.hist=S.hist.slice(0,40); store.set('dn_hist',S.hist);
+    S.hist.unshift({names:[top.n],g:top.g,kind:'order',won:Math.round(top.p*({1:1,2:2.5,4:4}[S.ppl]||2)),ts:Date.now()}); S.hist=S.hist.slice(0,150); store.set('dn_hist',S.hist);
     renderHist(); renderNudge();
     $('decide').parentElement.outerHTML=`<div class="done">맛있게 드세요! 😊 기록해 둘게요.</div>
       <a class="gamelink" href="${GAMES_URL}">🎲 오늘은 니가 내라 · 사다리·룰렛·N분의1 →</a>`;
@@ -595,12 +721,12 @@ function renderList(){
   const offN=ITEMS.filter(x=>x.off).length;
   $('mcount').textContent=`메뉴 ${ITEMS.length}개`+(offN?` · 꺼 둔 메뉴 ${offN}개`:'');
   $('mlist').innerHTML = list.length ? list.map(({it,k})=>`<div class="lrow${it.off?' off':''}">
-      <button type="button" class="row" data-k="${k}"><span class="nm">${esc(it.n)}</span><span class="meta">${esc(it.g)} · 1인 약 ${won(it.p)}</span>
+      <button type="button" class="row" data-k="${k}"><span class="nm">${esc(it.n)}</span>${it.like?'<span class="badge heart">❤️</span>':''}<span class="meta">${esc(it.g)} · 1인 약 ${won(it.p)}</span>
       <span class="sub2">${it.t.map(t=>TAGNAME[t]).join(' ')}</span></button>
       <button type="button" class="onoff${it.off?'':' on'}" data-k="${k}" aria-label="추천에 쓰기">${it.off?'안 먹어요':'추천 O'}</button></div>`).join('')
     : '<p class="empty">찾는 메뉴가 없어요. "+ 새 메뉴"로 만들어 보세요.</p>';
   $('mlist').querySelectorAll('.row').forEach(r=>r.onclick=()=>itemSheet(+r.dataset.k));
-  $('mlist').querySelectorAll('.onoff').forEach(b=>b.onclick=()=>{ const it=ITEMS[+b.dataset.k]; it.off=!it.off; saveItems(); renderList(); });
+  $('mlist').querySelectorAll('.onoff').forEach(b=>b.onclick=()=>{ const it=ITEMS[+b.dataset.k]; it.off=!it.off; if(it.off) it.like=false; saveItems(); renderList(); });
 }
 $('newItem').onclick=()=>itemSheet(-1);
 twoStep($('resetItems'),'정말 되돌릴까요? 한 번 더 누르세요',()=>{
@@ -619,6 +745,8 @@ function itemSheet(k){
     <label class="f" for="fp">1인 대략 가격 (원, 배달비 포함)</label><input id="fp" type="number" inputmode="numeric" step="1000" min="1000" value="${it.p}">
     <label class="f">특징 <small style="font-weight:400;color:var(--muted)">추천할 때 쓰여요</small></label>
     <div class="chips" id="ft">${TAGS.map(([t,l])=>`<button type="button" class="chip${it.t.includes(t)?' on':''}" data-t="${t}">${l}</button>`).join('')}</div>
+    <button type="button" class="tg ${it.like?'on':''}" id="flike" style="margin-top:14px">❤️ 좋아하는 메뉴 (더 자주 추천)<span class="sw"></span></button>
+    <button type="button" class="tg ${it.off?'on':''}" id="foff">👎 안 먹어요 (추천에서 빼기)<span class="sw"></span></button>
     <label class="f" for="ftip">주문 팁 (선택)</label><textarea id="ftip" rows="3" maxlength="300" placeholder="예: 세트로 시키면 콜라가 무료예요.">${esc(it.tip)}</textarea>
     <p class="err" id="ferr"></p>
     <div class="actions"><button type="button" class="btn ghost" id="fcancel">취소</button><button type="button" class="btn ok" id="fsave">저장</button></div>
@@ -626,6 +754,8 @@ function itemSheet(k){
   $('ft').querySelectorAll('.chip').forEach(b=>b.onclick=()=>{
     const t=b.dataset.t; const i=it.t.indexOf(t); if(i>=0) it.t.splice(i,1); else it.t.push(t); b.classList.toggle('on',i<0);
   });
+  $('flike').onclick=()=>{ it.like=!it.like; if(it.like){ it.off=false; $('foff').classList.remove('on'); } $('flike').classList.toggle('on',it.like); };
+  $('foff').onclick=()=>{ it.off=!it.off; if(it.off){ it.like=false; $('flike').classList.remove('on'); } $('foff').classList.toggle('on',it.off); };
   $('fcancel').onclick=closeSheet;
   $('fsave').onclick=()=>{
     it.n=$('fn').value.trim(); it.g=$('fg').value.trim(); it.p=parseInt($('fp').value)||0; it.tip=$('ftip').value.trim();
@@ -659,8 +789,33 @@ $('importBtn').onclick=()=>{
 
 window.addEventListener('pageshow',()=>{ S.hist=store.get('dn_hist',[]); renderHist(); renderNudge(); });
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden){ S.hist=store.get('dn_hist',[]); renderHist(); renderNudge(); } });
+wxInit();
 renderHist(); renderNudge();
 showView(location.hash.slice(1));
+
+const APPNAME='배달 앱';
+// ================= 사용 통계 (GoatCounter: 사람을 구분하지 않고 횟수만 셈) =================
+function gcEvent(name){
+  try{
+    if(window.goatcounter && window.goatcounter.count){ window.goatcounter.count({path:name, title:name, event:true}); }
+    else { (window.__gcq=window.__gcq||[]).push(name); }
+  }catch(e){}
+}
+// 통계 스크립트가 늦게 뜨면 쌓아 둔 걸 보냄
+window.addEventListener('load',()=>setTimeout(()=>{ (window.__gcq||[]).splice(0).forEach(gcEvent); },1500));
+function gcTrack(map){
+  // 버튼이 화면에서 바뀌기 전에 세려고 capture 단계에서 잡음
+  document.addEventListener('click',e=>{
+    for(const [sel,name] of map){ const t=e.target.closest && e.target.closest(sel); if(t){ gcEvent(typeof name==='function'?name(t):name); break; } }
+  },true);
+}
+if((window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone===true) gcEvent('설치된 앱으로 실행 - '+APPNAME);
+gcTrack([
+  ['#bigBtn','글자 크게 버튼'],['#wxAsk','배달 - 날씨 추천 켜기(위치)'],['.pref.like','배달 - 좋아요'],['.pref.no','배달 - 안 먹어요'],
+  ['#go','배달 - 추천받기'],['#decide','배달 - 이걸로 할게요(메뉴 결정)'],['.links a',t=>'배달 - 지도 검색 ('+t.textContent.trim()+')'],
+  ['#copyWord','배달 - 검색어 복사'],['.gamelink','배달 → 게임'],['#toCook','배달 → 저녁 앱'],['#newItem','배달 - 새 메뉴 만들기'],
+]);
 </script>
+<script data-goatcounter="https://sarbelio.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
 </body>
 </html>
